@@ -41,9 +41,6 @@ class GeneticAlgorithm:
             agent_y = list(np.random.randint(0, 2, self.__COUNT_GENES))
             self.__population.append([agent_x, agent_y])
 
-        # self.__population[0][0], self.__population[0][1] = [1 for _ in range(self.__COUNT_GENES)], \
-        #                                                    [1 for _ in range(self.__COUNT_GENES)]
-
     def min_hamming_distance(self, num_agent):
         min_ham = self.__COUNT_GENES
         ind = 0

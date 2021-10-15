@@ -1,7 +1,7 @@
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import tkinter as tk
-from tkinter import ttk
+from GeneticAlgorithm import GeneticAlgorithm
 import numpy as np
 
 
@@ -13,24 +13,31 @@ def rosenbrock_func(x, y):
     return (1 - x)**2 + 100*(y - x**2)**2
 
 
-LARGE_FONT = ("Verdana", 12)
+def rastrigin_func(x, y):
+    return
+
+
+LARGE_FONT = ("Verdana", 10)
 
 
 class OptimizationGui(tk.Tk):
-
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
 
         tk.Tk.iconbitmap(self)
         tk.Tk.wm_title(self, "Генетический алгоритм")
 
-        main_frame = tk.Frame(self, bg='yellow')
+        main_frame = tk.Frame(self, bg='white')
 
         select_frame = tk.Frame(main_frame)
 
-        radio_gen_ind = tk.Radiobutton(select_frame, text='Генетический алгоритм. \n z(x, y) = x^2 + y^2', value=1,
+        self.var = tk.IntVar()
+        self.var.set(0)
+        radio_gen_ind = tk.Radiobutton(select_frame, text='Генетический алгоритм. \n z(x, y) = x^2 + y^2',
+                                       variable=self.var, value=1, font=LARGE_FONT,
                                        command=lambda: self.show_frame(GeneticInd))
-        radio_gen_ros = tk.Radiobutton(select_frame, text='Генетический алгоритм.\n Функция Розенброка', value=0,
+        radio_gen_ros = tk.Radiobutton(select_frame, text='Генетический алгоритм.\n Функция Розенброка',
+                                       variable=self.var, value=0, font=LARGE_FONT,
                                        command=lambda: self.show_frame(GeneticRosenbrock))
         radio_gen_ros.pack(side='left', padx=10, pady=10)
         radio_gen_ind.pack(side='left', padx=10, pady=10)
@@ -40,36 +47,39 @@ class OptimizationGui(tk.Tk):
         work_frame = tk.Frame(main_frame)
 
         container_params = tk.Frame(work_frame)
-        lab_count_generation = tk.Label(container_params, text="Количество поколений:")
+        lab_count_generation = tk.Label(container_params, text="Количество поколений:", font=LARGE_FONT)
         lab_count_generation.grid(pady=5, padx=10)
-        txt_count_generation = tk.Entry(container_params, width=20)
-        txt_count_generation.grid(pady=5, padx=10)
+        self.txt_count_generation = tk.Entry(container_params, width=20, font=LARGE_FONT)
+        self.txt_count_generation.insert(0, 100)
+        self.txt_count_generation.grid(pady=5, padx=10)
 
-        lab_count_agent = tk.Label(container_params, text="Количество особей в популяции:")
+        lab_count_agent = tk.Label(container_params, text="Количество особей в популяции:", font=LARGE_FONT)
         lab_count_agent.grid(pady=5, padx=10)
-        txt_count_agent = tk.Entry(container_params, width=20)
-        txt_count_agent.grid(pady=5, padx=10)
+        self.txt_count_agent = tk.Entry(container_params, width=20, font=LARGE_FONT)
+        self.txt_count_agent.insert(0, 50)
+        self.txt_count_agent.grid(pady=5, padx=10)
 
-        lab_interval = tk.Label(container_params, text="Интервал:")
+        lab_interval = tk.Label(container_params, text="Интервал:", font=LARGE_FONT)
         lab_interval.grid(pady=5, padx=10)
 
         block_interval = tk.Frame(container_params)
-        lab_interval_from = tk.Label(block_interval, text="От:")
-        lab_interval_to = tk.Label(block_interval, text="До:")
-        txt_interval_from = tk.Entry(block_interval, width=7)
-        txt_interval_from.insert(0, -4)
-        txt_interval_to = tk.Entry(block_interval, width=7)
-        txt_interval_to.insert(0, 4)
+        lab_interval_from = tk.Label(block_interval, text="От:", font=LARGE_FONT)
+        lab_interval_to = tk.Label(block_interval, text="До:", font=LARGE_FONT)
+        self.txt_interval_from = tk.Entry(block_interval, width=7, font=LARGE_FONT)
+        self.txt_interval_from.insert(0, -4)
+        self.txt_interval_to = tk.Entry(block_interval, width=7, font=LARGE_FONT)
+        self.txt_interval_to.insert(0, 4)
 
         lab_interval_from.pack(side='left')
-        txt_interval_from.pack(side='left')
+        self.txt_interval_from.pack(side='left')
 
         lab_interval_to.pack(side='left')
-        txt_interval_to.pack(side='right')
+        self.txt_interval_to.pack(side='right')
 
         block_interval.grid()
 
-        start_button = tk.Button(container_params, text='Старт', width=30, pady=5)
+        start_button = tk.Button(container_params, text='Старт', width=30, pady=5,
+                                 command=self.change, font=LARGE_FONT)
         start_button.grid(pady=10)
 
         container_params.pack(side="left")
@@ -87,10 +97,11 @@ class OptimizationGui(tk.Tk):
 
         self.show_frame(GeneticRosenbrock)
 
-        container_out = tk.Frame(main_frame)
-        out_info = tk.Text(container_out, width=20,
-                font="Arial 14")
-        out_info.pack(fill='both')
+        container_out = tk.Frame(main_frame, bg='white')
+        self.res = tk.Label(container_out, bg='white', font=LARGE_FONT, fg='#272343')
+        self.res.pack(side='top')
+        self.out_info = tk.Text(container_out, width=50, borderwidth=0, wrap=tk.WORD, font=LARGE_FONT, fg='#272343')
+        self.out_info.pack(fill='both')
         container_out.pack(side='right')
 
         work_frame.pack()
@@ -100,6 +111,38 @@ class OptimizationGui(tk.Tk):
     def show_frame(self, cont):
         frame = self.frames[cont]
         frame.tkraise()
+
+    def change(self):
+        if self.var.get() == 0:
+            self.genetic_algorithm(rosenbrock_func)
+        elif self.var.get() == 1:
+            self.genetic_algorithm(func)
+
+    def genetic_algorithm(self, func):
+        self.out_info.delete('1.0', tk.END)
+        self.res.config(text='')
+        GA = GeneticAlgorithm(int(self.txt_count_agent.get()), 16, func,
+                              [int(self.txt_interval_from.get()), int(self.txt_interval_to.get())])
+        GA.clear()
+        GA.create_population()
+
+        count = self.txt_count_generation.get()
+
+        for i in range(int(count)):
+            couple = GA.selection_the_best()
+            new = GA.crossover(couple)
+
+            GA.choice_the_best(new)
+            GA.mutation()
+            self.out_info.insert("0.0", str(i) + ' ' + str(GA.best_agent()) + '\n')
+            self.update()
+
+        self.res.config(text='Минимум = ' + str(GA.best_agent()))
+
+        del GA
+
+    def insert_out(self, i, best):
+        self.out_info.insert(0.0, str(i) + ' ' + str(best) + '\n')
 
 
 class GeneticRosenbrock(tk.Frame):

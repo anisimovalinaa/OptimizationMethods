@@ -159,3 +159,6 @@ class GeneticAlgorithm:
 
     def decoding_agent(self, agent):
         return round((agent * (self.__max - self.__min)) / (2 ** self.__COUNT_GENES - 1) + self.__min, 2)
+
+    def clear(self):
+        self.__population = []

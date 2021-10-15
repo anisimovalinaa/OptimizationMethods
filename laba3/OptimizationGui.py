@@ -2,7 +2,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import tkinter as tk
 from GeneticAlgorithm import GeneticAlgorithm
+from ParticleSwarmOptimization import PSO
 import numpy as np
+import math
 
 
 def func(x, y):
@@ -13,8 +15,12 @@ def rosenbrock_func(x, y):
     return (1 - x)**2 + 100*(y - x**2)**2
 
 
-def rastrigin_func(x, y):
-    return
+def rastrigin_func(args):
+    sum = 10 * len(args)
+    for x in args:
+        sum += x ** 2 - 10 * math.cos(2 * math.pi * x)
+
+    return sum
 
 
 LARGE_FONT = ("Verdana", 10)
@@ -39,8 +45,12 @@ class OptimizationGui(tk.Tk):
         radio_gen_ros = tk.Radiobutton(select_frame, text='Генетический алгоритм.\n Функция Розенброка',
                                        variable=self.var, value=0, font=LARGE_FONT,
                                        command=lambda: self.show_frame(GeneticRosenbrock))
+        radio_pso = tk.Radiobutton(select_frame, text='Алгоритм роя частиц.\n Функция Растригина',
+                                       variable=self.var, value=2, font=LARGE_FONT,
+                                       command=lambda: self.show_frame(MRH))
         radio_gen_ros.pack(side='left', padx=10, pady=10)
         radio_gen_ind.pack(side='left', padx=10, pady=10)
+        radio_pso.pack(side='left', padx=10, pady=10)
 
         select_frame.pack(fill='x')
 
@@ -88,7 +98,7 @@ class OptimizationGui(tk.Tk):
         self.three_d_frame.pack(side='left')
         self.frames = {}
 
-        for F in [GeneticRosenbrock, GeneticInd]:
+        for F in [GeneticRosenbrock, GeneticInd, MRH]:
             frame = F(self.three_d_frame, self)
 
             self.frames[F] = frame
@@ -117,6 +127,8 @@ class OptimizationGui(tk.Tk):
             self.genetic_algorithm(rosenbrock_func)
         elif self.var.get() == 1:
             self.genetic_algorithm(func)
+        elif self.var.get() == 2:
+            self.pso_algorithm(rastrigin_func)
 
     def genetic_algorithm(self, func):
         self.out_info.delete('1.0', tk.END)
@@ -141,8 +153,16 @@ class OptimizationGui(tk.Tk):
 
         del GA
 
-    def insert_out(self, i, best):
-        self.out_info.insert(0.0, str(i) + ' ' + str(best) + '\n')
+    def pso_algorithm(self, func):
+        self.out_info.delete('1.0', tk.END)
+        pso = PSO(int(self.txt_count_agent.get()),
+                  [float(self.txt_interval_from.get()), float(self.txt_interval_to.get())], 2, func)
+        for i in range(int(self.txt_count_generation.get())):
+            pso.create_new_generation()
+            self.out_info.insert("0.0", str(i) + ' ' + str(pso.get_best()) + '\n')
+            self.update()
+
+        self.res.config(text='Минимум = ' + str(pso.get_best()))
 
 
 class GeneticRosenbrock(tk.Frame):
@@ -171,6 +191,32 @@ class GeneticInd(tk.Frame):
         ax = f.gca(projection='3d')
         ax.plot_surface(x, y, z)
         ax.view_init(30, 45)
+
+        canvas = FigureCanvasTkAgg(f, self)
+
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+
+
+class MRH(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+
+        x, y = np.mgrid[-5.12:5.12:50j, -5.12:5.12:40j]
+        z = []
+        for i in range(len(x)):
+            l = []
+            for j in range(len(x[i])):
+                v = rastrigin_func([x[i][j], y[i][j]])
+                l.append(v)
+
+            z.append(l)
+
+        z = np.array(z)
+
+        f = plt.figure()
+        ax = f.gca(projection='3d')
+        ax.plot_surface(x, y, z)
+        ax.view_init(20, 60)
 
         canvas = FigureCanvasTkAgg(f, self)
 

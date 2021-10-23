@@ -137,8 +137,7 @@ def simplex_method():
     return triangles
 
 
-def draw_func():
-    fig, ax = plt.subplots(1)
+def draw_func(ax):
     x = np.arange(-6, 5.5, 0.2)
     z = np.arange(-10.5, 12.0, 0.2)
 
@@ -154,8 +153,6 @@ def draw_func_points(X, Z, Y, ax):
     ax.plot(X, Z, color='black')
     ax.text(-0.7, 1, 'Минимум в точке \n({}; {}; {})'.format(X[-1], Z[-1], Y[-1]))
 
-    plt.show()
-
 
 def draw_triangles(triangles, ax):
     for points in triangles:
@@ -163,19 +160,3 @@ def draw_triangles(triangles, ax):
 
     ax.text(0.4, -1, 'Минимум в точке \n({}; {})'.format(triangles[-1][0][0],
                                                          round(triangles[-1][1][0], 1)))
-
-    plt.show()
-
-
-if __name__ == '__main__':
-    X, Z, Y = gauss_seidel_method()
-    ax = draw_func()
-    draw_func_points(X, Z, Y, ax)
-
-    triangles = simplex_method()
-    ax = draw_func()
-    draw_triangles(triangles, ax)
-
-
-
-

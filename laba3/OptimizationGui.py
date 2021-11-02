@@ -3,16 +3,18 @@ import matplotlib.pyplot as plt
 import tkinter as tk
 from GeneticAlgorithm import GeneticAlgorithm
 from ParticleSwarmOptimization import PSO
+from BeesAlgorithm.beefunc import HimmelblauFunc
+from BeesAlgorithm.hive import Hive
 import numpy as np
 import math
 
 
 def func(x, y):
-    return x**2 + y**2
+    return x ** 2 + y ** 2
 
 
 def rosenbrock_func(x, y):
-    return (1 - x)**2 + 100*(y - x**2)**2
+    return (1 - x) ** 2 + 100 * (y - x ** 2) ** 2
 
 
 def rastrigin_func(args):
@@ -21,6 +23,10 @@ def rastrigin_func(args):
         sum += x ** 2 - 10 * math.cos(2 * math.pi * x)
 
     return sum
+
+
+def himmelblau_func(x, y):
+    return (x ** 2 + y - 11) ** 2 + (x + y ** 2 - 7) ** 2
 
 
 LARGE_FONT = ("Verdana", 10)
@@ -41,16 +47,20 @@ class OptimizationGui(tk.Tk):
         self.var.set(0)
         radio_gen_ind = tk.Radiobutton(select_frame, text='Генетический алгоритм. \n z(x, y) = x^2 + y^2',
                                        variable=self.var, value=1, font=LARGE_FONT,
-                                       command=lambda: self.show_frame(GeneticInd))
+                                       command=lambda: self.show_frame(IndFuncPage))
         radio_gen_ros = tk.Radiobutton(select_frame, text='Генетический алгоритм.\n Функция Розенброка',
                                        variable=self.var, value=0, font=LARGE_FONT,
-                                       command=lambda: self.show_frame(GeneticRosenbrock))
+                                       command=lambda: self.show_frame(RosenbrockPage))
         radio_pso = tk.Radiobutton(select_frame, text='Алгоритм роя частиц.\n Функция Растригина',
-                                       variable=self.var, value=2, font=LARGE_FONT,
-                                       command=lambda: self.show_frame(MRH))
+                                   variable=self.var, value=2, font=LARGE_FONT,
+                                   command=lambda: self.show_frame(RastriginPage))
+        radio_bees = tk.Radiobutton(select_frame, text='Пчелиный алгоритм.\n Функция Химмельблау',
+                                    variable=self.var, value=3, font=LARGE_FONT,
+                                    command=lambda: self.show_frame(HimmelblauPage))
         radio_gen_ros.pack(side='left', padx=10, pady=10)
         radio_gen_ind.pack(side='left', padx=10, pady=10)
         radio_pso.pack(side='left', padx=10, pady=10)
+        radio_bees.pack(side='left', padx=10, pady=10)
 
         select_frame.pack(fill='x')
 
@@ -98,14 +108,14 @@ class OptimizationGui(tk.Tk):
         self.three_d_frame.pack(side='left')
         self.frames = {}
 
-        for F in [GeneticRosenbrock, GeneticInd, MRH]:
+        for F in [RosenbrockPage, IndFuncPage, RastriginPage, HimmelblauPage]:
             frame = F(self.three_d_frame, self)
 
             self.frames[F] = frame
 
             frame.grid(row=0, column=0, sticky="nsew")
 
-        self.show_frame(GeneticRosenbrock)
+        self.show_frame(RosenbrockPage)
 
         container_out = tk.Frame(main_frame, bg='white')
         self.res = tk.Label(container_out, bg='white', font=LARGE_FONT, fg='#272343')
@@ -129,32 +139,36 @@ class OptimizationGui(tk.Tk):
             self.genetic_algorithm(func)
         elif self.var.get() == 2:
             self.pso_algorithm(rastrigin_func)
+        elif self.var.get() == 3:
+            self.bees_algorithm(HimmelblauFunc)
 
     def genetic_algorithm(self, func):
         self.out_info.delete('1.0', tk.END)
         self.res.config(text='')
-        GA = GeneticAlgorithm(int(self.txt_count_agent.get()), 16, func,
+        ga = GeneticAlgorithm(int(self.txt_count_agent.get()), 16, func,
                               [int(self.txt_interval_from.get()), int(self.txt_interval_to.get())])
-        GA.clear()
-        GA.create_population()
+        ga.clear()
+        ga.create_population()
 
         count = self.txt_count_generation.get()
 
         for i in range(int(count)):
-            couple = GA.selection_the_best()
-            new = GA.crossover(couple)
+            couple = ga.selection_the_best()
+            new = ga.crossover(couple)
 
-            GA.choice_the_best(new)
-            GA.mutation()
-            self.out_info.insert("0.0", str(i) + ' ' + str(GA.best_agent()) + '\n')
+            ga.choice_the_best(new)
+            ga.mutation()
+            self.out_info.insert("0.0", str(i) + ' ' + str(ga.best_agent()) + '\n')
             self.update()
 
-        self.res.config(text='Минимум = ' + str(GA.best_agent()))
+        self.res.config(text='Минимум = ' + str(ga.best_agent()))
 
-        del GA
+        del ga
 
     def pso_algorithm(self, func):
         self.out_info.delete('1.0', tk.END)
+        self.res.config(text='')
+
         pso = PSO(int(self.txt_count_agent.get()),
                   [float(self.txt_interval_from.get()), float(self.txt_interval_to.get())], 2, func)
         for i in range(int(self.txt_count_generation.get())):
@@ -164,8 +178,63 @@ class OptimizationGui(tk.Tk):
 
         self.res.config(text='Минимум = ' + str(pso.get_best()))
 
+    def bees_algorithm(self, func):
+        self.out_info.delete('1.0', tk.END)
+        self.res.config(text='')
 
-class GeneticRosenbrock(tk.Frame):
+        # Количество пчел-разведчиков
+        scout_bee_count = int(self.txt_count_agent.get())
+
+        # Количество пчел, отправляемых на выбранные, но не лучшие участки
+        selected_bee_count = 10
+
+        # Количество пчел, отправляемые на лучшие участки
+        best_bee_count = 30
+
+        # Количество выбранных, но не лучших, участков
+        sel_sites_count = 15
+
+        # Количество лучших участков
+        best_sites_count = 5
+
+        # Через такое количество итераций без нахождения лучшего решения уменьшим область поиска
+        max_func_counter = 10
+
+        # Во столько раз будем уменьшать область поиска
+        koeff = func.get_range_koeff()
+
+        hive = Hive(scout_bee_count, selected_bee_count, best_bee_count,
+                    sel_sites_count, best_sites_count,
+                    func.get_start_range(), func,
+                    [float(self.txt_interval_from.get()), float(self.txt_interval_to.get())])
+
+        # Начальное значение целевой функции
+        best_func = -1.0e9
+
+        # Количество итераций без улучшения целевой функции
+        func_counter = 0
+
+        for n in range(int(self.txt_count_generation.get())):
+            hive.next_step()
+
+            if hive.get_best_fitness() != best_func:
+                # Найдено место, где целевая функция лучше
+                best_func = hive.get_best_fitness()
+                func_counter = 0
+
+            else:
+                func_counter += 1
+                if func_counter == max_func_counter:
+                    hive.range = [hive.range[m] * koeff[m] for m in range(len(hive.range))]
+                    func_counter = 0
+
+            self.out_info.insert("0.0", str(n) + ' ' + str(hive.get_best()) + '\n')
+            self.update()
+
+        self.res.config(text='Минимум = ' + str(hive.get_best()))
+
+
+class RosenbrockPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
 
@@ -181,7 +250,7 @@ class GeneticRosenbrock(tk.Frame):
         canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
 
-class GeneticInd(tk.Frame):
+class IndFuncPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
 
@@ -197,19 +266,19 @@ class GeneticInd(tk.Frame):
         canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
 
-class MRH(tk.Frame):
+class RastriginPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
 
         x, y = np.mgrid[-5.12:5.12:50j, -5.12:5.12:40j]
         z = []
         for i in range(len(x)):
-            l = []
+            points = []
             for j in range(len(x[i])):
                 v = rastrigin_func([x[i][j], y[i][j]])
-                l.append(v)
+                points.append(v)
 
-            z.append(l)
+            z.append(points)
 
         z = np.array(z)
 
@@ -217,6 +286,22 @@ class MRH(tk.Frame):
         ax = f.gca(projection='3d')
         ax.plot_surface(x, y, z)
         ax.view_init(20, 60)
+
+        canvas = FigureCanvasTkAgg(f, self)
+
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+
+
+class HimmelblauPage(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+
+        x, y = np.mgrid[-4:4:20j, -4:4:10j]
+        z = himmelblau_func(x, y)
+        f = plt.figure()
+        ax = f.gca(projection='3d')
+        ax.plot_surface(x, y, z)
+        ax.view_init(30, 45)
 
         canvas = FigureCanvasTkAgg(f, self)
 

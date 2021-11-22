@@ -5,6 +5,7 @@ from GeneticAlgorithm import GeneticAlgorithm
 from ParticleSwarmOptimization import PSO
 from BeesAlgorithm.beefunc import HimmelblauFunc
 from BeesAlgorithm.hive import Hive
+from ArtificialImmuneSystem import AIS
 import numpy as np
 import math
 
@@ -57,10 +58,14 @@ class OptimizationGui(tk.Tk):
         radio_bees = tk.Radiobutton(select_frame, text='Пчелиный алгоритм.\n Функция Химмельблау',
                                     variable=self.var, value=3, font=LARGE_FONT,
                                     command=lambda: self.show_frame(HimmelblauPage))
+        radio_ais = tk.Radiobutton(select_frame, text='Искусственная иммунная сеть.\n Функция Розенброка',
+                                    variable=self.var, value=4, font=LARGE_FONT,
+                                    command=lambda: self.show_frame(RosenbrockPage))
         radio_gen_ros.pack(side='left', padx=10, pady=10)
         radio_gen_ind.pack(side='left', padx=10, pady=10)
         radio_pso.pack(side='left', padx=10, pady=10)
         radio_bees.pack(side='left', padx=10, pady=10)
+        radio_ais.pack(side='left', padx=10, pady=10)
 
         select_frame.pack(fill='x')
 
@@ -141,6 +146,8 @@ class OptimizationGui(tk.Tk):
             self.pso_algorithm(rastrigin_func)
         elif self.var.get() == 3:
             self.bees_algorithm(HimmelblauFunc)
+        elif self.var.get() == 4:
+            self.ais(rosenbrock_func)
 
     def genetic_algorithm(self, func):
         self.out_info.delete('1.0', tk.END)
@@ -232,6 +239,25 @@ class OptimizationGui(tk.Tk):
             self.update()
 
         self.res.config(text='Минимум = ' + str(hive.get_best()))
+
+    def ais(self, func):
+        self.out_info.delete('1.0', tk.END)
+        self.res.config(text='')
+
+        a_i_s = AIS(func)
+
+        for i in range(50):
+            best_affinity = a_i_s.max_bg_affinity()
+            a_i_s.clone_best_antibodies(best_affinity)
+            a_i_s.mutation_clones()
+            a_i_s.create_population_of_memory()
+            a_i_s.clonal_compression()
+            a_i_s.network_compression()
+            a_i_s.regeneration()
+            self.out_info.insert("0.0", str(i) + ' ' + str(a_i_s.get_best_agent()) + '\n')
+            self.update()
+
+        self.res.config(text='Минимум = ' + str(a_i_s.get_best_agent()))
 
 
 class RosenbrockPage(tk.Frame):

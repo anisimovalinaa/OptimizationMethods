@@ -44,49 +44,6 @@ class AIS:
     def get_antigens(self):
         return self.__antigens
 
-    def __init_ais(self):
-        for i in range(self.__SIZE_ANTIBODIES):
-            x = round(np.random.uniform(self.__min, self.__max), 4)
-            y = round(np.random.uniform(self.__min, self.__max), 4)
-            self.__antibodies.append([x, y])
-
-        for i in range(self.__SIZE_ANTIGENS):
-            x = round(np.random.uniform(self.__min, self.__max), 4)
-            y = round(np.random.uniform(self.__min, self.__max), 4)
-            self.__antigens.append(np.array([x, y]))
-
-    def __bb_affinity(self, antibodies):
-        affinity_matrix = []
-
-        for first_antibody in antibodies:
-            distances = []
-            for second_antibody in antibodies:
-                distances.append(linalg.norm(np.array(first_antibody) - np.array(second_antibody)))
-
-            affinity_matrix.append(np.array(distances))
-
-        return affinity_matrix
-
-    def __bg_affinity(self):
-        affinity_matrix = []
-
-        for antigen in self.__antigens:
-            distances = []
-            for antibody in self.__antibodies:
-                distances.append(linalg.norm(antigen - antibody))
-
-            affinity_matrix.append(np.array(distances))
-
-        return affinity_matrix
-
-    def __bg_affinity_clones(self, antigen, clones):
-        affinity = []
-
-        for clone in clones:
-            affinity.append(linalg.norm(antigen - clone))
-
-        return affinity
-
     def max_bg_affinity(self):
         matrix_affinity = self.__bg_affinity()
 
@@ -101,16 +58,6 @@ class AIS:
             max_affinity_els.append(dict_affinity)
 
         return max_affinity_els
-
-    def create_population_of_memory(self):
-        self.__population_of_memory = []
-        for i in range(len(self.__antigens)):
-            affinity = self.__bg_affinity_clones(self.__antigens[i], self.__population_of_clones[i])
-            ind_max = np.argpartition(affinity, -self.__SELECTION_RATE)[-self.__SELECTION_RATE:]
-
-            for ind in ind_max:
-                if affinity[ind] > self.__COEFF_DEATH:
-                    self.__population_of_memory.append(self.__population_of_clones[i][ind])
 
     def clone_best_antibodies(self, affinity_best):
         self.__population_of_clones = []
@@ -127,8 +74,7 @@ class AIS:
         for cur_clones in self.__population_of_clones:
             for point in cur_clones:
                 for i in range(len(point)):
-                    cod = format(self.__coding_agent(point[i]), 'b')
-                    cod = '0' * (self.__COUNT_GENES - len(cod)) + cod
+                    cod = self.__code_point(point[i])
 
                     cod_mut = ''
                     for ch in cod:
@@ -141,16 +87,15 @@ class AIS:
 
                     point[i] = self.__decoding_agent(cod_mut)
 
-    def __compression(self, population):
-        affinity_memory = self.__bb_affinity(population)
-        cur_population = []
+    def create_population_of_memory(self):
+        self.__population_of_memory = []
+        for i in range(len(self.__antigens)):
+            affinity = self.__affinity(self.__antigens[i], self.__population_of_clones[i])
+            ind_max = np.argpartition(affinity, -self.__SELECTION_RATE)[-self.__SELECTION_RATE:]
 
-        for affinity in affinity_memory:
-            for cell_memory, cur_affinity in zip(self.__population_of_memory, affinity):
-                if cur_affinity > self.__COEFF_COMPRESSION and (list(cell_memory) not in cur_population):
-                    cur_population.append(list(cell_memory))
-
-        return cur_population
+            for ind in ind_max:
+                if affinity[ind] > self.__COEFF_DEATH:
+                    self.__population_of_memory.append(self.__population_of_clones[i][ind])
 
     def clonal_compression(self):
         selected_agents = self.__compression(self.__population_of_memory)
@@ -190,7 +135,26 @@ class AIS:
                 self.__best_agent[1] = agent[1]
                 self.__best_agent[2] = new_val
 
-        return self.__best_agent
+        return tuple(self.__best_agent)
+
+    def __init_ais(self):
+        for _ in range(self.__SIZE_ANTIBODIES):
+            x = round(np.random.uniform(self.__min, self.__max), 4)
+            y = round(np.random.uniform(self.__min, self.__max), 4)
+            self.__antibodies.append([x, y])
+
+        for _ in range(self.__SIZE_ANTIGENS):
+            x = round(np.random.uniform(self.__min, self.__max), 4)
+            y = round(np.random.uniform(self.__min, self.__max), 4)
+            self.__antigens.append(np.array([x, y]))
+
+    def __hamming_distance(self, first_value, second_value):
+        ham_dist = 0
+        for ch1, ch2 in zip(first_value, second_value):
+            if ch1 != ch2:
+                ham_dist += 1
+
+        return ham_dist
 
     def __calc_distribution_clones(self):
         distribution = [0 for _ in range(self.__SIZE_BEST_ANTIBODIES)]
@@ -210,6 +174,58 @@ class AIS:
 
         return distribution
 
+    def __bb_affinity(self, antibodies):
+        affinity_matrix = []
+
+        for first_antibody in antibodies:
+            distances = self.__affinity(first_antibody, antibodies)
+
+            affinity_matrix.append(np.array(distances))
+
+        return affinity_matrix
+
+    def __bg_affinity(self):
+        affinity_matrix = []
+
+        for antigen in self.__antigens:
+            distances = self.__affinity(antigen, self.__antibodies)
+
+            affinity_matrix.append(np.array(distances))
+
+        return affinity_matrix
+
+    def __affinity(self, agent, agents):
+        affinity = []
+
+        cod_antigen_x = self.__code_point(agent[0])
+        cod_antigen_y = self.__code_point(agent[1])
+
+        for el in agents:
+            cod_antibody_x = self.__code_point(el[0])
+            cod_antibody_y = self.__code_point(el[1])
+
+            ham_x = self.__hamming_distance(cod_antigen_x, cod_antibody_x)
+            ham_y = self.__hamming_distance(cod_antigen_y, cod_antibody_y)
+
+            affinity.append(ham_x + ham_y)
+
+        return affinity
+
+    def __compression(self, population):
+        affinity_memory = self.__bb_affinity(population)
+        cur_population = []
+
+        for affinity in affinity_memory:
+            for cell_memory, cur_affinity in zip(self.__population_of_memory, affinity):
+                if cur_affinity > self.__COEFF_COMPRESSION and (list(cell_memory) not in cur_population):
+                    cur_population.append(list(cell_memory))
+
+        return cur_population
+
+    def __code_point(self, point):
+        cod = format(self.__coding_agent(point), 'b')
+        return '0' * (self.__COUNT_GENES - len(cod)) + cod
+
     def __coding_agent(self, agent):
         return math.trunc(((agent - self.__min) * (2 ** self.__COUNT_GENES - 1)) / (self.__max - self.__min))
 
@@ -217,22 +233,14 @@ class AIS:
         return round((agent * (self.__max - self.__min)) / (2 ** self.__COUNT_GENES - 1) + self.__min, 4)
 
 
-o = AIS(rosenbrock_func)
-
-for _ in range(50):
-    best_affinity = o.max_bg_affinity()
-    o.clone_best_antibodies(best_affinity)
-    o.mutation_clones()
-    o.create_population_of_memory()
-    o.clonal_compression()
-    o.network_compression()
-    o.regeneration()
-    print(o.get_best_agent())
-
-# print(int('100', 2))
-# a = [9, 4, 4, 3, 3, 9, 0, 4, 6, 0]
-# ind = np.argpartition(a, -4)[-4:]
+# o = AIS(rosenbrock_func)
 #
-# print(ind)
-# print(a[ind])
-
+# for i in range(50):
+#     best_affinity = o.max_bg_affinity()
+#     o.clone_best_antibodies(best_affinity)
+#     o.mutation_clones()
+#     o.create_population_of_memory()
+#     o.clonal_compression()
+#     o.network_compression()
+#     o.regeneration()
+#     print(i, o.get_best_agent())
